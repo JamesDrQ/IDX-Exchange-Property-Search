@@ -15,8 +15,26 @@ router.get("/", async (req, res) => {
       offset = "0",
     } = req.query;
 
+    // URL query parameters are strings by default,
+    // so numeric parameters must be converted.
     const parsedLimit = Number(limit);
     const parsedOffset = Number(offset);
+
+    const parsedMinPrice =
+      minPrice !== undefined ? Number(minPrice) : undefined;
+
+    const parsedMaxPrice =
+      maxPrice !== undefined ? Number(maxPrice) : undefined;
+
+    const parsedBeds =
+      beds !== undefined ? Number(beds) : undefined;
+
+    const parsedBaths =
+      baths !== undefined ? Number(baths) : undefined;
+
+    // -----------------------------
+    // 1. Validate pagination
+    // -----------------------------
 
     if (
       !Number.isInteger(parsedLimit) ||
@@ -28,80 +46,132 @@ router.get("/", async (req, res) => {
       });
     }
 
-    if (!Number.isInteger(parsedOffset) || parsedOffset < 0) {
+    if (
+      !Number.isInteger(parsedOffset) ||
+      parsedOffset < 0
+    ) {
       return res.status(400).json({
         error: "offset must be a non-negative integer",
       });
     }
 
-    const filters = [];
+    // -----------------------------
+    // 2. Validate numeric filters
+    // -----------------------------
+
+    if (
+      minPrice !== undefined &&
+      (!Number.isFinite(parsedMinPrice) ||
+        parsedMinPrice < 0)
+    ) {
+      return res.status(400).json({
+        error: "minPrice must be a non-negative number",
+      });
+    }
+
+    if (
+      maxPrice !== undefined &&
+      (!Number.isFinite(parsedMaxPrice) ||
+        parsedMaxPrice < 0)
+    ) {
+      return res.status(400).json({
+        error: "maxPrice must be a non-negative number",
+      });
+    }
+
+    if (
+      beds !== undefined &&
+      (!Number.isInteger(parsedBeds) ||
+        parsedBeds < 0)
+    ) {
+      return res.status(400).json({
+        error: "beds must be a non-negative integer",
+      });
+    }
+
+    if (
+      baths !== undefined &&
+      (!Number.isInteger(parsedBaths) ||
+        parsedBaths < 0)
+    ) {
+      return res.status(400).json({
+        error: "baths must be a non-negative integer",
+      });
+    }
+
+    if (
+      parsedMinPrice !== undefined &&
+      parsedMaxPrice !== undefined &&
+      parsedMinPrice > parsedMaxPrice
+    ) {
+      return res.status(400).json({
+        error: "minPrice cannot be greater than maxPrice",
+      });
+    }
+
+    // -----------------------------
+    // 3. Build SQL conditions
+    // -----------------------------
+
+    const conditions = [];
     const values = [];
 
     if (city !== undefined) {
-      filters.push("LOWER(TRIM(L_City)) = LOWER(TRIM(?))");
-      values.push(city);
+      const trimmedCity = city.trim();
+
+      if (!trimmedCity) {
+        return res.status(400).json({
+          error: "city cannot be empty",
+        });
+      }
+
+      conditions.push(
+        "LOWER(TRIM(L_City)) = LOWER(TRIM(?))"
+      );
+      values.push(trimmedCity);
     }
 
     if (zipcode !== undefined) {
-      filters.push("L_Zip = ?");
-      values.push(zipcode);
-    }
+      const trimmedZipcode = zipcode.trim();
 
-    if (minPrice !== undefined) {
-      const n = Number(minPrice);
-
-      if (!Number.isFinite(n) || n < 0) {
+      if (!trimmedZipcode) {
         return res.status(400).json({
-          error: "minPrice must be a non-negative number",
+          error: "zipcode cannot be empty",
         });
       }
 
-      filters.push("L_SystemPrice >= ?");
-      values.push(n);
+      conditions.push("TRIM(L_Zip) = ?");
+      values.push(trimmedZipcode);
     }
 
-    if (maxPrice !== undefined) {
-      const n = Number(maxPrice);
-
-      if (!Number.isFinite(n) || n < 0) {
-        return res.status(400).json({
-          error: "maxPrice must be a non-negative number",
-        });
-      }
-
-      filters.push("L_SystemPrice <= ?");
-      values.push(n);
+    if (parsedMinPrice !== undefined) {
+      conditions.push("L_SystemPrice >= ?");
+      values.push(parsedMinPrice);
     }
 
-    if (beds !== undefined) {
-      const n = Number(beds);
-
-      if (!Number.isInteger(n) || n < 0) {
-        return res.status(400).json({
-          error: "beds must be a non-negative integer",
-        });
-      }
-
-      filters.push("L_Keyword2 >= ?");
-      values.push(n);
+    if (parsedMaxPrice !== undefined) {
+      conditions.push("L_SystemPrice <= ?");
+      values.push(parsedMaxPrice);
     }
 
-    if (baths !== undefined) {
-      const n = Number(baths);
-
-      if (!Number.isInteger(n) || n < 0) {
-        return res.status(400).json({
-          error: "baths must be a non-negative integer",
-        });
-      }
-
-      filters.push("BathroomsHalf >= ?");
-      values.push(n);
+    if (parsedBeds !== undefined) {
+      conditions.push("L_Keyword2 >= ?");
+      values.push(parsedBeds);
     }
 
-    const whereClause = filters.length
-      ? `WHERE ${filters.join(" AND ")}`
-      : "";
+    if (parsedBaths !== undefined) {
+      conditions.push("LM_Dec_3 >= ?");
+      values.push(parsedBaths);
+    }
+
+    const whereClause =
+      conditions.length > 0
+        ? `WHERE ${conditions.join(" AND ")}`
+        : "";
+
+    // -----------------------------
+    // 4. Count all matching rows
+    // -----------------------------
 
     const countSql = `
       SELECT COUNT(*) AS total
@@ -109,51 +179,154 @@ router.get("/", async (req, res) => {
       ${whereClause}
     `;
 
+    const [countRows] = await pool.query(
+      countSql,
+      values
+    );
+
+    // -----------------------------
+    // 5. Fetch one page of results
+    // -----------------------------
+
     const dataSql = `
       SELECT
-        id,
-        L_ListingID,
         L_DisplayId,
-        L_Address,
-        L_AddressStreet,
         L_City,
-        L_State,
         L_Zip,
         L_SystemPrice,
-        L_Keyword2,
+        L_Keyword2 AS bedrooms,
+        LM_Dec_3 AS bathrooms,
+        MainLevelBedrooms,
         BathroomsHalf,
-        LM_Int2_3,
-        L_Status,
-        StandardStatus,
-        L_Remarks,
-        L_Photos,
-        PhotoCount,
-        LMD_MP_Latitude,
-        LMD_MP_Longitude,
-        YearBuilt,
-        ModificationTimestamp
+        L_Keyword7
       FROM rets_property
       ${whereClause}
-      LIMIT ? OFFSET ?
+      ORDER BY L_DisplayId
+      LIMIT ?
+      OFFSET ?
     `;
 
-    const [countRows] = await pool.query(countSql, values);
-    const [rows] = await pool.query(dataSql, [
+    const dataValues = [
       ...values,
       parsedLimit,
       parsedOffset,
-    ]);
+    ];
 
-    res.json({
+    const [rows] = await pool.query(
+      dataSql,
+      dataValues
+    );
+
+    // -----------------------------
+    // 6. Send response
+    // -----------------------------
+
+    return res.json({
       total: countRows[0].total,
       limit: parsedLimit,
       offset: parsedOffset,
       results: rows,
     });
-  } catch (err) {
-    console.error("GET /api/properties error:", err);
-    res.status(500).json({
+  } catch (error) {
+    console.error(
+      "GET /api/properties error:",
+      error
+    );
+
+    return res.status(500).json({
       error: "Internal server error",
+      message: "Failed to retrieve properties",
+    });
+  }
+});
+
+router.get("/:id/openhouses", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!/^[a-zA-Z0-9]{1,255}$/.test(id)) {
+      return res.status(400).json({
+        error: "Invalid property ID",
+      });
+    }
+
+    const [propertyRows] = await pool.query(
+      `
+        SELECT L_ListingID
+        FROM rets_property
+        WHERE L_ListingID = ?
+        LIMIT 1
+      `,
+      [id]
+    );
+
+    if (propertyRows.length === 0) {
+      return res.status(404).json({
+        error: "Property not found",
+      });
+    }
+
+    const [openHouseRows] = await pool.query(
+      `
+        SELECT *
+        FROM rets_openhouse
+        WHERE L_ListingID = ?
+        ORDER BY OpenHouseDate, OH_StartTime
+      `,
+      [id]
+    );
+
+    return res.json(openHouseRows);
+  } catch (error) {
+    console.error(
+      "GET /api/properties/:id/openhouses error:",
+      error
+    );
+
+    return res.status(500).json({
+      error: "Internal server error",
+      message: "Failed to retrieve open houses",
+    });
+  }
+});
+
+// GET /api/properties/:id
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!/^[a-zA-Z0-9]{1,255}$/.test(id)) {
+      return res.status(400).json({
+        error: "Invalid property ID",
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+        SELECT *
+        FROM rets_property
+        WHERE L_ListingID = ?
+        LIMIT 1
+      `,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error: "Property not found",
+      });
+    }
+
+    return res.json(rows[0]);
+  } catch (error) {
+    console.error(
+      "GET /api/properties/:id error:",
+      error
+    );
+
+    return res.status(500).json({
+      error: "Internal server error",
+      message: "Failed to retrieve property",
     });
   }
 });
