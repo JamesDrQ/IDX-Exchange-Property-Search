@@ -191,11 +191,15 @@ router.get("/", async (req, res) => {
     const dataSql = `
       SELECT
         L_DisplayId,
+        L_Address,
         L_City,
+        L_Photos,
+        L_State,
         L_Zip,
         L_SystemPrice,
         L_Keyword2 AS bedrooms,
         LM_Dec_3 AS bathrooms,
+        LM_Int2_3 AS sqft,
         MainLevelBedrooms,
         BathroomsHalf,
         L_Keyword7
