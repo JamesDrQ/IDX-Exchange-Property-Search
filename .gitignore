@@ -7,3 +7,5 @@ build
 *.docx
 *.xlsx
 *.sql
+*.pages
+*.numbers
