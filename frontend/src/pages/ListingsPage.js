@@ -1,5 +1,6 @@
 import "./ListingsPage.css";
 import PropertyCard from "../components/PropertyCard";
+import PropertyFilters from "../components/PropertyFilters";
 import { useEffect, useState } from "react";
 import { getProperties } from "../api/client";
 
@@ -25,29 +26,67 @@ function ListingsPage() {
     loadProperties();
   }, []);
 
-  if (loading) {
-    return <p>Loading properties...</p>;
+  async function handleSearch(filters){
+    try {
+      setLoading(true);
+      setError("");
+      const data = await getProperties(filters);
+      setProperties(data.results || []);
+      setTotal(data.total || 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  if (error) {
-    return <p>Error: {error}</p>;
+  async function handleClear() {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await getProperties();
+      setProperties(data.results || []);
+      setTotal(data.total || 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="listings-page">
       <h1>Property Listings</h1>
-      <p>
-        Showing {properties.length} of {total.toLocaleString()} properties
-      </p>
+      <PropertyFilters 
+        onSearch={handleSearch}
+        onClear={handleClear}  
+      />
+      {loading && <p>Loading properties...</p>}
+      {error && <p>Error: {error}</p>}
+      {!loading && !error && (
+        <>
+          <p>
+            Showing {properties.length} of {total.toLocaleString()} properties
+          </p>
 
-      <div className="property-grid">
-        {properties.map((property) => (
-          <PropertyCard
-            key={property.id || property.L_ListingID || property.L_DisplayId}
-            property={property}
-          />
-        ))}
-      </div>
+          {properties.length === 0 ? (
+            <p>No properties found. Try changing your filters.</p>
+          ) : (
+            <div className="property-grid">
+              {properties.map((property) => (
+                <PropertyCard
+                  key={
+                    property.id ||
+                    property.L_ListingID ||
+                    property.L_DisplayId
+                  }
+                  property={property}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
