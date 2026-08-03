@@ -1,19 +1,27 @@
 import "./ListingsPage.css";
 import PropertyCard from "../components/PropertyCard";
 import PropertyFilters from "../components/PropertyFilters";
-import { useEffect, useState } from "react";
+import Pagination from "../components/Pagination";
+import { act, useEffect, useState } from "react";
 import { getProperties } from "../api/client";
 
 function ListingsPage() {
   const [properties, setProperties] = useState([]);
   const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeFilters, setActiveFilters] = useState({});
 
   useEffect(() => {
     async function loadProperties() {
       try {
-        const data = await getProperties();
+        const data = await getProperties({
+          ...activeFilters,
+          limit: itemsPerPage,
+          offset: (currentPage - 1) * itemsPerPage,
+        });
         setProperties(data.results || []);
         setTotal(data.total || 0);
       } catch (err) {
@@ -24,13 +32,19 @@ function ListingsPage() {
     }
 
     loadProperties();
-  }, []);
+  }, [currentPage, itemsPerPage, activeFilters]);
 
   async function handleSearch(filters){
     try {
       setLoading(true);
       setError("");
-      const data = await getProperties(filters);
+      setActiveFilters(filters);
+      setCurrentPage(1);
+      const data = await getProperties({
+        ...filters,
+        limit: itemsPerPage,
+        offset: 0,
+      });
       setProperties(data.results || []);
       setTotal(data.total || 0);
     } catch (err) {
@@ -44,7 +58,12 @@ function ListingsPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await getProperties();
+      setActiveFilters({});
+      setCurrentPage(1);
+      const data = await getProperties({
+        limit: itemsPerPage,
+        offset: 0,
+      });
       setProperties(data.results || []);
       setTotal(data.total || 0);
     } catch (err) {
@@ -53,6 +72,21 @@ function ListingsPage() {
       setLoading(false);
     }
   }
+
+  const totalPages = Math.ceil(total / itemsPerPage);
+
+  function handlePageChange(page) {
+    setCurrentPage(page);
+    window.scrollTo(0, 0);
+  }
+  
+  const startItem =
+    total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+
+  const endItem = Math.min(
+    currentPage * itemsPerPage,
+    total
+  );
 
   return (
     <div className="listings-page">
@@ -66,24 +100,34 @@ function ListingsPage() {
       {!loading && !error && (
         <>
           <p>
-            Showing {properties.length} of {total.toLocaleString()} properties
+            Showing {startItem.toLocaleString()}-
+            {endItem.toLocaleString()} of{" "}
+            {total.toLocaleString()} properties
           </p>
 
           {properties.length === 0 ? (
             <p>No properties found. Try changing your filters.</p>
           ) : (
-            <div className="property-grid">
-              {properties.map((property) => (
-                <PropertyCard
-                  key={
-                    property.id ||
-                    property.L_ListingID ||
-                    property.L_DisplayId
-                  }
-                  property={property}
-                />
-              ))}
-            </div>
+            <>
+              <div className="property-grid">
+                {properties.map((property) => (
+                  <PropertyCard
+                    key={
+                      property.id ||
+                      property.L_ListingID ||
+                      property.L_DisplayId
+                    }
+                    property={property}
+                  />
+                ))}
+              </div>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </>
           )}
         </>
       )}
