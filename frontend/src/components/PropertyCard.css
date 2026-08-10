@@ -55,3 +55,42 @@
   transform: translateY(-4px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
 }
+
+.property-card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.property-photo-container {
+  position: relative;
+}
+
+.photo-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}
+
+.photo-arrow-left {
+  left: 8px;
+}
+
+.photo-arrow-right {
+  right: 8px;
+}
+
+.photo-counter {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}

@@ -2,7 +2,7 @@ import "./ListingsPage.css";
 import PropertyCard from "../components/PropertyCard";
 import PropertyFilters from "../components/PropertyFilters";
 import Pagination from "../components/Pagination";
-import { act, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getProperties } from "../api/client";
 
 function ListingsPage() {
