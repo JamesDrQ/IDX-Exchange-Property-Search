@@ -1,5 +1,14 @@
 export async function getProperties(filters = {}) {
-  const params = new URLSearchParams(filters);
+  const cleanedFilters = Object.fromEntries(
+    Object.entries(filters).filter(
+      ([, value]) =>
+        value !== "" &&
+        value !== undefined &&
+        value !== null
+    )
+  );
+
+  const params = new URLSearchParams(cleanedFilters);
 
   const response = await fetch(
     `http://localhost:5000/api/properties?${params.toString()}`

@@ -11,6 +11,8 @@ router.get("/", async (req, res) => {
       maxPrice,
       beds,
       baths,
+      sortBy,
+      sortOrder,
       limit = "20",
       offset = "0",
     } = req.query;
@@ -110,7 +112,36 @@ router.get("/", async (req, res) => {
     }
 
     // -----------------------------
-    // 3. Build SQL conditions
+    // 3. Validate sorting
+    // -----------------------------
+
+    const allowedSortFields = [
+      "L_SystemPrice",
+      "ListingContractDate",
+      "LM_Int2_3",
+      "L_Keyword2",
+    ];
+
+    if (
+      sortBy !== undefined &&
+      !allowedSortFields.includes(sortBy)
+    ) {
+      return res.status(400).json({
+        error: "Invalid sortBy value",
+      });
+    }
+
+    if (
+      sortOrder !== undefined &&
+      !["asc", "desc"].includes(sortOrder.toLowerCase())
+    ) {
+      return res.status(400).json({
+        error: "sortOrder must be asc or desc",
+      });
+    }
+
+    // -----------------------------
+    // 4. Build SQL conditions
     // -----------------------------
 
     const conditions = [];
@@ -169,6 +200,11 @@ router.get("/", async (req, res) => {
         ? `WHERE ${conditions.join(" AND ")}`
         : "";
 
+    const orderByClause = 
+      sortBy !== undefined
+        ? `ORDER BY ${sortBy} ${sortOrder?.toUpperCase() || "ASC"}`
+        : "ORDER BY L_DisplayId";
+
     // -----------------------------
     // 4. Count all matching rows
     // -----------------------------
@@ -200,12 +236,13 @@ router.get("/", async (req, res) => {
         L_Keyword2 AS bedrooms,
         LM_Dec_3 AS bathrooms,
         LM_Int2_3 AS sqft,
+        ListingContractDate,
         MainLevelBedrooms,
         BathroomsHalf,
         L_Keyword7
       FROM rets_property
       ${whereClause}
-      ORDER BY L_DisplayId
+      ${orderByClause}
       LIMIT ?
       OFFSET ?
     `;

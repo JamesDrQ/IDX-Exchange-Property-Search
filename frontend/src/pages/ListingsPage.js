@@ -13,12 +13,16 @@ function ListingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState("");
 
   useEffect(() => {
     async function loadProperties() {
       try {
         const data = await getProperties({
           ...activeFilters,
+          sortBy,
+          sortOrder,
           limit: itemsPerPage,
           offset: (currentPage - 1) * itemsPerPage,
         });
@@ -32,45 +36,20 @@ function ListingsPage() {
     }
 
     loadProperties();
-  }, [currentPage, itemsPerPage, activeFilters]);
+  }, [currentPage, itemsPerPage, activeFilters, sortBy, sortOrder]);
 
   async function handleSearch(filters){
-    try {
-      setLoading(true);
-      setError("");
-      setActiveFilters(filters);
-      setCurrentPage(1);
-      const data = await getProperties({
-        ...filters,
-        limit: itemsPerPage,
-        offset: 0,
-      });
-      setProperties(data.results || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    setActiveFilters(filters);
+    setCurrentPage(1);
+    setSortBy("");
+    setSortOrder("");
   }
 
   async function handleClear() {
-    try {
-      setLoading(true);
-      setError("");
-      setActiveFilters({});
-      setCurrentPage(1);
-      const data = await getProperties({
-        limit: itemsPerPage,
-        offset: 0,
-      });
-      setProperties(data.results || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    setActiveFilters({});
+    setCurrentPage(1);
+    setSortBy("");
+    setSortOrder("");
   }
 
   const totalPages = Math.ceil(total / itemsPerPage);
@@ -91,10 +70,33 @@ function ListingsPage() {
   return (
     <div className="listings-page">
       <h1>Property Listings</h1>
+
       <PropertyFilters 
         onSearch={handleSearch}
         onClear={handleClear}  
       />
+
+      <div className="sorting-controls">
+        <label htmlFor="sort">Sort by: </label>
+        <select
+          id="sort"
+          value={`${sortBy}:${sortOrder}`}
+          onChange={(e) => {
+            const [field, order] = e.target.value.split(":");
+            setSortBy(field);
+            setSortOrder(order);
+            setCurrentPage(1);
+          }}
+        >
+          <option value=":">Default</option>
+          <option value="L_SystemPrice:asc">Price: Low to High</option>
+          <option value="L_SystemPrice:desc">Price: High to Low</option>
+          <option value="ListingContractDate:desc">Date Listed: Newest</option>
+          <option value="ListingContractDate:asc">Date Listed: Oldest</option>
+          <option value="LM_Int2_3:desc">Square Feet: High to Low</option>
+          <option value="L_Keyword2:desc">Bedrooms: High to Low</option>
+        </select>
+      </div>
       {loading && <p>Loading properties...</p>}
       {error && <p>Error: {error}</p>}
       {!loading && !error && (

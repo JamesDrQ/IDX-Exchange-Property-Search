@@ -4,6 +4,7 @@ import { useState } from "react";
 
 function PropertyCard({ property }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [photoError, setPhotoError] = useState(false);
   let photos = [];
 
   try {
@@ -20,6 +21,8 @@ function PropertyCard({ property }) {
     event.preventDefault();
     event.stopPropagation();
 
+    setPhotoError(false);
+
     setCurrentPhotoIndex((currentIndex) =>
       currentIndex === 0 ? photos.length - 1 : currentIndex - 1
     );
@@ -28,6 +31,8 @@ function PropertyCard({ property }) {
   function handleNextPhoto(event) {
     event.preventDefault();
     event.stopPropagation();
+
+    setPhotoError(false);
 
     setCurrentPhotoIndex((currentIndex) =>
       currentIndex === photos.length - 1 ? 0 : currentIndex + 1
@@ -40,12 +45,13 @@ function PropertyCard({ property }) {
       className="property-card-link"
     >
       <div className="property-card">
-        {photos.length > 0 ? (
+        {photos.length > 0 && !photoError ? (
           <div className="property-photo-container">
             <img
               className="property-photo"
               src={photos[currentPhotoIndex]}
               alt={property.L_Address || "Property"}
+              onError={() => setPhotoError(true)}
             />
             {photos.length > 1 && (
               <>
