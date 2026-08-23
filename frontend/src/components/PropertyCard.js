@@ -1,6 +1,7 @@
 import "./PropertyCard.css";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import PropTypes from "prop-types";
 
 function PropertyCard({ property }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -104,5 +105,31 @@ function PropertyCard({ property }) {
     </Link>
   );
 }
+
+PropertyCard.propTypes = {
+  property: PropTypes.shape({
+    L_Photos: PropTypes.string,
+    L_DisplayId: PropTypes.string,
+    L_Address: PropTypes.string,
+    L_City: PropTypes.string,
+    L_State: PropTypes.string,
+    L_SystemPrice: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]),
+    bedrooms: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]),
+    bathrooms: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]),
+    sqft: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]),
+  }).isRequired,
+};
 
 export default PropertyCard;
