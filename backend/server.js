@@ -23,7 +23,7 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
 
-    console.log(
+    console.info(
       `${new Date().toISOString()} ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`
     );
   });
@@ -52,9 +52,9 @@ app.get("/api/health", async (req, res) => {
     });
   }
 });
-
+  
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.info(`Server running on port ${PORT}`);
 });
