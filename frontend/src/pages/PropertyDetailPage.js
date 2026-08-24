@@ -1,33 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getProperty, getOpenHouses } from "../api/client";
+import usePropertyDetails from "../hooks/usePropertyDetails";
+import {
+  parsePropertyPhotos,
+  parseOpenHouseRemarks,
+} from "../utils/propertyUtils";
 
 function PropertyDetailPage() {
   const { id } = useParams();
-  const [property, setProperty] = useState(null);
-  const [openHouses, setOpenHouses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { property, openHouses, loading, error } = usePropertyDetails(id);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-
-  useEffect(() => {
-    async function loadProperty() {
-      try {
-        const data = await getProperty(id);
-        setProperty(data);
-
-        const openHouseData = await getOpenHouses(id);
-        setOpenHouses(openHouseData);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadProperty();
-  }, [id]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -51,17 +34,7 @@ function PropertyDetailPage() {
     return <p>Error: {error}</p>;
   }
 
-  let photos = [];
-
-  try {
-    const parsedPhotos = JSON.parse(property.L_Photos || "[]");
-
-    if (Array.isArray(parsedPhotos)) {
-      photos = parsedPhotos;
-    }
-  } catch (error) {
-    photos = [];
-  }
+  const photos = parsePropertyPhotos(property.L_Photos);
 
   function handlePreviousPhoto(event) {
     event.stopPropagation();
@@ -192,14 +165,7 @@ function PropertyDetailPage() {
 
     {openHouses.length > 0 ? (
       openHouses.map((openHouse, index) => {
-        let remarks = "";
-
-        try {
-          const parsed = JSON.parse(openHouse.all_data || "{}");
-          remarks = parsed.OpenHouseRemarks || "";
-        } catch (error) {
-          remarks = "";
-        }
+        const remarks = parseOpenHouseRemarks(openHouse.all_data);
 
         return (
           <div key={index}>
